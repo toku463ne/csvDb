@@ -51,6 +51,26 @@ func (db *CsvDB) CreateCsvTable(name string,
 	return t, nil
 }
 
+func (db *CsvDB) GetTable(name string) (*CsvTable, error) {
+	td := new(TableDef)
+	td.init(name, db.baseDir)
+	t := new(CsvTable)
+	if err := t.load(td.iniFile, db.baseDir); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (db *CsvDB) GetTableNames() []string {
+	tableNames := make([]string, len(db.tables))
+	i := 0
+	for tableName, _ := range db.tables {
+		tableNames[i] = tableName
+		i++
+	}
+	return tableNames
+}
+
 // DropAllTables() drop all tables in the CsvDB object
 func (db *CsvDB) DropAllTables() error {
 	for _, t := range db.tables {
@@ -80,4 +100,17 @@ func (db *CsvDB) DropTable(name string) error {
 	}
 	delete(db.tables, name)
 	return nil
+}
+
+func (db *CsvDB) TableExists(name string) bool {
+	_, ok := db.tables[name]
+	return ok
+}
+
+func (db *CsvDB) CreateCsvTableIfNotExists(name string,
+	columns []string, useGzip bool) (*CsvTable, error) {
+	if !db.TableExists(name) {
+		return db.CreateCsvTable(name, columns, useGzip)
+	}
+	return db.GetTable(name)
 }

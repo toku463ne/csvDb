@@ -115,7 +115,7 @@ func (t *CsvTable) getPartitionPath(partitionID string) string {
 	return path
 }
 
-func (t *CsvTable) GetpartitionIDs() []string {
+func (t *CsvTable) GetPartitionIDs() []string {
 	_, filenames := getSortedGlob(t.getPartitionPath("*"))
 	if len(filenames) == 0 {
 		return nil
@@ -124,13 +124,13 @@ func (t *CsvTable) GetpartitionIDs() []string {
 
 	i := 0
 	for _, filename := range filenames {
-		partitionIDs[i] = t.getpartitionID(filename)
+		partitionIDs[i] = t.getPartitionID(filename)
 		i++
 	}
 	return partitionIDs
 }
 
-func (t *CsvTable) getpartitionID(path string) string {
+func (t *CsvTable) getPartitionID(path string) string {
 	tokens := strings.Split(path, ".")
 	return tokens[0]
 }
@@ -152,4 +152,12 @@ func (t *CsvTable) GetPartition(partitionID string) (*Partition, error) {
 	p.colMap = t.colMap
 	p.useGzip = t.useGzip
 	return p, nil
+}
+
+func (t *CsvTable) GetColumns() []string {
+	return t.columns
+}
+
+func (t *CsvTable) GetColMap() map[string]int {
+	return t.colMap
 }
