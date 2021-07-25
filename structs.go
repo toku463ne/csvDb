@@ -36,7 +36,7 @@ type CsvCursor struct {
 	filenames          []string
 	currReadingFileIdx int
 	currReader         *CsvReader
-	err                error
+	Err                error
 }
 
 type CsvReader struct {

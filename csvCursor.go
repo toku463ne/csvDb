@@ -13,27 +13,27 @@ func (cur *CsvCursor) Next() bool {
 	}
 	if cur.currReader != nil {
 		ret := cur.currReader.next()
-		cur.err = cur.currReader.err
+		cur.Err = cur.currReader.err
 		return ret
 	}
 	if cur.filenames == nil {
-		cur.err = nil
+		cur.Err = nil
 		return false
 	}
 	cur.currReadingFileIdx++
 	if cur.currReadingFileIdx >= len(cur.filenames) {
-		cur.err = nil
+		cur.Err = nil
 		return false
 	}
 
 	reader, err := newCsvReader(cur.filenames[cur.currReadingFileIdx])
 	if err != nil {
-		cur.err = err
+		cur.Err = err
 		return false
 	}
 
 	ret := reader.next()
-	cur.err = reader.err
+	cur.Err = reader.err
 	cur.currReader = reader
 	return ret
 }
@@ -47,5 +47,5 @@ func (cur *CsvCursor) Close() {
 	}
 	cur.currReader = nil
 	cur.currReadingFileIdx = -1
-	cur.err = nil
+	cur.Err = nil
 }

@@ -46,8 +46,8 @@ func TestCsvTable(t *testing.T) {
 	cur := p1.OpenCur()
 
 	for cur.Next() {
-		if cur.err != nil {
-			t.Errorf("Error getting data : %v", cur.err)
+		if cur.Err != nil {
+			t.Errorf("Error getting data : %v", cur.Err)
 		}
 		v := cur.Values()
 		if v[0] != "1" {
@@ -76,8 +76,8 @@ func TestCsvTable(t *testing.T) {
 
 	cur = p2.OpenCur()
 	for cur.Next() {
-		if cur.err != nil {
-			t.Errorf("Error getting data : %v", cur.err)
+		if cur.Err != nil {
+			t.Errorf("Error getting data : %v", cur.Err)
 		}
 		v := cur.Values()
 		if v[0] != "3" {
