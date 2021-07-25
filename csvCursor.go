@@ -1,13 +1,13 @@
 package csvdb
 
-func (cur *CsvCursor) values() []string {
+func (cur *CsvCursor) Values() []string {
 	if cur.currReader != nil {
 		return cur.currReader.values
 	}
 	return nil
 }
 
-func (cur *CsvCursor) next() bool {
+func (cur *CsvCursor) Next() bool {
 	if cur == nil {
 		return false
 	}
@@ -38,7 +38,7 @@ func (cur *CsvCursor) next() bool {
 	return ret
 }
 
-func (cur *CsvCursor) close() {
+func (cur *CsvCursor) Close() {
 	if cur == nil {
 		return
 	}

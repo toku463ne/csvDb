@@ -45,11 +45,11 @@ func TestCsvTable(t *testing.T) {
 	}
 	cur := p1.OpenCur()
 
-	for cur.next() {
+	for cur.Next() {
 		if cur.err != nil {
 			t.Errorf("Error getting data : %v", cur.err)
 		}
-		v := cur.values()
+		v := cur.Values()
 		if v[0] != "1" {
 			t.Errorf("data error want=%s got=%s", "1", v[0])
 		}
@@ -59,7 +59,7 @@ func TestCsvTable(t *testing.T) {
 		break
 	}
 
-	cur.close()
+	cur.Close()
 
 	p2, err := tb.GetPartition("002")
 	if err != nil {
@@ -75,11 +75,11 @@ func TestCsvTable(t *testing.T) {
 	}
 
 	cur = p2.OpenCur()
-	for cur.next() {
+	for cur.Next() {
 		if cur.err != nil {
 			t.Errorf("Error getting data : %v", cur.err)
 		}
-		v := cur.values()
+		v := cur.Values()
 		if v[0] != "3" {
 			t.Errorf("data error want=%s got=%s", "3", v[0])
 		}
@@ -89,7 +89,7 @@ func TestCsvTable(t *testing.T) {
 		break
 	}
 
-	cur.close()
+	cur.Close()
 
 	//found, err := p2.Query(map[string]string{"id": "3"})
 	found, err := p2.Query(func(v []string) bool { return v[0] == "3" })

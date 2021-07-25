@@ -49,7 +49,7 @@ func (p *Partition) Query(condF func([]string) bool) ([][]string, error) {
 	cur := p.OpenCur()
 	filenames := cur.filenames
 	found := [][]string{}
-	defer cur.close()
+	defer cur.Close()
 	for _, filename := range filenames {
 		reader, err := newCsvReader(filename)
 		if err != nil {
