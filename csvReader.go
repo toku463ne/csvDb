@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func newCsvReader(filename string) (*csvReader, error) {
+func newCsvReader(filename string) (*CsvReader, error) {
 	ext := filepath.Ext(filename)
 	var fr *os.File
 	var zr *gzip.Reader
@@ -35,7 +35,7 @@ func newCsvReader(filename string) (*csvReader, error) {
 		mode = cRModePlain
 	}
 
-	c := new(csvReader)
+	c := new(CsvReader)
 	c.fr = fr
 	c.zr = zr
 	c.reader = r
@@ -44,7 +44,7 @@ func newCsvReader(filename string) (*csvReader, error) {
 	return c, nil
 }
 
-func (c *csvReader) next() bool {
+func (c *CsvReader) next() bool {
 	values, err := c.reader.Read()
 	c.err = err
 	if err == io.EOF {
@@ -58,7 +58,7 @@ func (c *csvReader) next() bool {
 	return true
 }
 
-func (c *csvReader) close() {
+func (c *CsvReader) close() {
 	if c.zr != nil {
 		c.zr.Close()
 	}

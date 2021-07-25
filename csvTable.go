@@ -10,10 +10,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (t *csvTable) initAndSave(name, rootDir string,
+func (t *CsvTable) initAndSave(name, rootDir string,
 	columns []string, useGzip bool) error {
-	t.tableDef = new(tableDef)
-	t.tableDef.init(name, rootDir)
+	t.TableDef = new(TableDef)
+	t.TableDef.init(name, rootDir)
 
 	t.columns = columns
 	t.useGzip = useGzip
@@ -30,7 +30,7 @@ func (t *csvTable) initAndSave(name, rootDir string,
 	return nil
 }
 
-func (t *csvTable) saveTableToIni() error {
+func (t *CsvTable) saveTableToIni() error {
 	file, err := os.OpenFile(t.iniFile, os.O_CREATE, 0640)
 	if err != nil {
 		return err
@@ -57,8 +57,8 @@ func (t *csvTable) saveTableToIni() error {
 	return nil
 }
 
-func (t *csvTable) load(iniFile, rootDir string) error {
-	if err := t.tableDef.load(iniFile); err != nil {
+func (t *CsvTable) load(iniFile, rootDir string) error {
+	if err := t.TableDef.load(iniFile); err != nil {
 		return err
 	}
 
@@ -90,7 +90,7 @@ func (t *csvTable) load(iniFile, rootDir string) error {
 	return nil
 }
 
-func (t *csvTable) validatePartitionID(partitionID string) error {
+func (t *CsvTable) validatepartitionID(partitionID string) error {
 	if strings.Contains(partitionID, ".") {
 		return errors.New("partitionID cannot include '.'")
 	}
@@ -103,7 +103,7 @@ func (t *csvTable) validatePartitionID(partitionID string) error {
 	return nil
 }
 
-func (t *csvTable) getPartitionPath(partitionID string) string {
+func (t *CsvTable) getPartitionPath(partitionID string) string {
 	path := ""
 	filename := fmt.Sprintf("%s.csv", partitionID)
 
@@ -115,7 +115,7 @@ func (t *csvTable) getPartitionPath(partitionID string) string {
 	return path
 }
 
-func (t *csvTable) GetPartitionIDs() []string {
+func (t *CsvTable) GetpartitionIDs() []string {
 	_, filenames := getSortedGlob(t.getPartitionPath("*"))
 	if len(filenames) == 0 {
 		return nil
@@ -124,28 +124,28 @@ func (t *csvTable) GetPartitionIDs() []string {
 
 	i := 0
 	for _, filename := range filenames {
-		partitionIDs[i] = t.getPartitionID(filename)
+		partitionIDs[i] = t.getpartitionID(filename)
 		i++
 	}
 	return partitionIDs
 }
 
-func (t *csvTable) getPartitionID(path string) string {
+func (t *CsvTable) getpartitionID(path string) string {
 	tokens := strings.Split(path, ".")
 	return tokens[0]
 }
 
-func (t *csvTable) GetDefaultPartition() *partition {
+func (t *CsvTable) GetDefaultPartition() *Partition {
 	p, _ := t.GetPartition(cDefaultPartitionID)
 	return p
 }
 
-func (t *csvTable) GetPartition(partitionID string) (*partition, error) {
-	if err := t.validatePartitionID(partitionID); err != nil {
+func (t *CsvTable) GetPartition(partitionID string) (*Partition, error) {
+	if err := t.validatepartitionID(partitionID); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	p := new(partition)
+	p := new(Partition)
 	p.partitionID = partitionID
 	p.tableName = t.name
 	p.path = t.getPartitionPath(partitionID)

@@ -7,13 +7,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (td *tableDef) init(name, rootDir string) {
+func (td *TableDef) init(name, rootDir string) {
 	td.name = name
 	td.dataDir = fmt.Sprintf("%s/%s", rootDir, name)
 	td.iniFile = fmt.Sprintf("%s.%s", td.dataDir, cTblIniExt)
 }
 
-func (td *tableDef) load(iniFile string) error {
+func (td *TableDef) load(iniFile string) error {
 	// iniFile = baseDir/tableType.tableName
 	pos := strings.LastIndex(iniFile, "/")
 	if pos == -1 {

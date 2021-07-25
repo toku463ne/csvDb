@@ -6,25 +6,25 @@ import (
 	"os"
 )
 
-type csvDB struct {
-	tables  map[string]*tableDef
+type CsvDB struct {
+	tables  map[string]*TableDef
 	baseDir string
 }
 
-type tableDef struct {
+type TableDef struct {
 	name    string
 	iniFile string
 	dataDir string
 }
 
-type csvTable struct {
-	*tableDef
+type CsvTable struct {
+	*TableDef
 	useGzip bool
 	columns []string
 	colMap  map[string]int
 }
 
-type partition struct {
+type Partition struct {
 	tableName   string
 	partitionID string
 	colMap      map[string]int
@@ -32,14 +32,14 @@ type partition struct {
 	path        string
 }
 
-type csvCursor struct {
+type CsvCursor struct {
 	filenames          []string
 	currReadingFileIdx int
-	currReader         *csvReader
+	currReader         *CsvReader
 	err                error
 }
 
-type csvReader struct {
+type CsvReader struct {
 	fr       *os.File
 	zr       *gzip.Reader
 	reader   *csv.Reader
@@ -49,7 +49,7 @@ type csvReader struct {
 	mode     string
 }
 
-type csvWriter struct {
+type CsvWriter struct {
 	fw     *os.File
 	zw     *gzip.Writer
 	writer *csv.Writer

@@ -8,10 +8,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-// NewCsvDB(baseDir) create a new csvDB object
-func NewCsvDB(baseDir string) (*csvDB, error) {
-	db := new(csvDB)
-	db.tables = map[string]*tableDef{}
+// NewCsvDB(baseDir) create a new CsvDB object
+func NewCsvDB(baseDir string) (*CsvDB, error) {
+	db := new(CsvDB)
+	db.tables = map[string]*TableDef{}
 	db.baseDir = baseDir
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
 		os.Mkdir(baseDir, 0755)
@@ -24,7 +24,7 @@ func NewCsvDB(baseDir string) (*csvDB, error) {
 		return nil, err
 	}
 	for _, iniFile := range iniFiles {
-		td := new(tableDef)
+		td := new(TableDef)
 		if err := td.load(iniFile); err == nil {
 			db.tables[td.name] = td
 		} else {
@@ -35,24 +35,24 @@ func NewCsvDB(baseDir string) (*csvDB, error) {
 	return db, nil
 }
 
-func (db *csvDB) CreateCsvTable(name string,
-	columns []string, useGzip bool) (*csvTable, error) {
-	td := new(tableDef)
+func (db *CsvDB) CreateCsvTable(name string,
+	columns []string, useGzip bool) (*CsvTable, error) {
+	td := new(TableDef)
 	td.init(name, db.baseDir)
 
 	if pathExist(td.iniFile) {
 		return nil, errors.New(fmt.Sprintf("The table %s exists", name))
 	}
-	t := new(csvTable)
+	t := new(CsvTable)
 	if err := t.initAndSave(name, db.baseDir, columns, useGzip); err != nil {
 		return nil, err
 	}
-	db.tables[name] = t.tableDef
+	db.tables[name] = t.TableDef
 	return t, nil
 }
 
-// DropAllTables() drop all tables in the csvDB object
-func (db *csvDB) DropAllTables() error {
+// DropAllTables() drop all tables in the CsvDB object
+func (db *CsvDB) DropAllTables() error {
 	for _, t := range db.tables {
 		if err := db.DropTable(t.name); err != nil {
 			return err
@@ -61,7 +61,7 @@ func (db *csvDB) DropAllTables() error {
 	return nil
 }
 
-func (db *csvDB) DropTable(name string) error {
+func (db *CsvDB) DropTable(name string) error {
 	td := db.tables[name]
 	if td == nil {
 		return nil

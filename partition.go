@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-func (p *partition) openW(writeMode string) (*csvWriter, error) {
+func (p *Partition) openW(writeMode string) (*CsvWriter, error) {
 	writer, err := newCsvWriter(p.path, writeMode)
 	if err != nil {
 		return nil, err
@@ -13,16 +13,16 @@ func (p *partition) openW(writeMode string) (*csvWriter, error) {
 	return writer, nil
 }
 
-func (p *partition) openCur() *csvCursor {
+func (p *Partition) OpenCur() *CsvCursor {
 	_, filenames := getSortedGlob(p.path)
-	cur := new(csvCursor)
+	cur := new(CsvCursor)
 	cur.filenames = filenames
 	cur.currReadingFileIdx = -1
 	return cur
 	//return nil
 }
 
-func (p *partition) Drop() error {
+func (p *Partition) Drop() error {
 	if _, err := os.Stat(p.path); os.IsNotExist(err) {
 		return nil
 	}
@@ -30,7 +30,7 @@ func (p *partition) Drop() error {
 	return err
 }
 
-func (p *partition) InsertRows(rows [][]string, writeMode string) error {
+func (p *Partition) InsertRows(rows [][]string, writeMode string) error {
 	writer, err := p.openW(writeMode)
 	if err != nil {
 		return err
@@ -45,8 +45,8 @@ func (p *partition) InsertRows(rows [][]string, writeMode string) error {
 	return nil
 }
 
-func (p *partition) Query(condF func([]string) bool) ([][]string, error) {
-	cur := p.openCur()
+func (p *Partition) Query(condF func([]string) bool) ([][]string, error) {
+	cur := p.OpenCur()
 	filenames := cur.filenames
 	found := [][]string{}
 	defer cur.close()
@@ -66,7 +66,7 @@ func (p *partition) Query(condF func([]string) bool) ([][]string, error) {
 	return found, nil
 }
 
-func (p *partition) minmax(fieldname string,
+func (p *Partition) minmax(fieldname string,
 	condF func([]string) bool) (float64, float64, []string, []string, error) {
 	rows, err := p.Query(condF)
 	if err != nil {
@@ -105,19 +105,19 @@ func (p *partition) minmax(fieldname string,
 	return minVal, maxVal, minRow, maxRow, nil
 }
 
-func (p *partition) Min(fieldname string,
+func (p *Partition) Min(fieldname string,
 	condF func([]string) bool) (float64, []string, error) {
 	mi, _, miR, _, err := p.minmax(fieldname, condF)
 	return mi, miR, err
 }
 
-func (p *partition) Max(fieldname string,
+func (p *Partition) Max(fieldname string,
 	condF func([]string) bool) (float64, []string, error) {
 	_, ma, _, maR, err := p.minmax(fieldname, condF)
 	return ma, maR, err
 }
 
-func (p *partition) Count(condF func([]string) bool) (int, error) {
+func (p *Partition) Count(condF func([]string) bool) (int, error) {
 	rows, err := p.Query(condF)
 	if err != nil {
 		return -1, err
@@ -128,7 +128,7 @@ func (p *partition) Count(condF func([]string) bool) (int, error) {
 	return len(rows), nil
 }
 
-func (p *partition) Sum(colname string,
+func (p *Partition) Sum(colname string,
 	condF func([]string) bool) (float64, error) {
 	rows, err := p.Query(condF)
 	if err != nil {
@@ -152,7 +152,7 @@ func (p *partition) Sum(colname string,
 	return s, nil
 }
 
-func (p *partition) Select1rec(condF func([]string) bool) ([]string, error) {
+func (p *Partition) Select1rec(condF func([]string) bool) ([]string, error) {
 	rows, err := p.Query(condF)
 	if err != nil {
 		return nil, err

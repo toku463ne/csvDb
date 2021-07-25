@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func newCsvWriter(path, writeMode string) (*csvWriter, error) {
+func newCsvWriter(path, writeMode string) (*CsvWriter, error) {
 	ext := filepath.Ext(path)
 	var fw *os.File
 	var zw *gzip.Writer
@@ -40,7 +40,7 @@ func newCsvWriter(path, writeMode string) (*csvWriter, error) {
 		mode = cRModePlain
 	}
 
-	c := new(csvWriter)
+	c := new(CsvWriter)
 	c.path = path
 	c.writer = writer
 	c.fw = fw
@@ -50,7 +50,7 @@ func newCsvWriter(path, writeMode string) (*csvWriter, error) {
 	return c, nil
 }
 
-func (c *csvWriter) write(record []string) error {
+func (c *CsvWriter) write(record []string) error {
 	err := c.writer.Write(record)
 	if err != nil {
 		return extError(err, fmt.Sprintf("record=[%s]", strings.Join(record, ",")))
@@ -58,11 +58,11 @@ func (c *csvWriter) write(record []string) error {
 	return nil
 }
 
-func (c *csvWriter) flush() {
+func (c *CsvWriter) flush() {
 	c.writer.Flush()
 }
 
-func (c *csvWriter) close() {
+func (c *CsvWriter) close() {
 	if c.zw != nil {
 		c.zw.Close()
 	}

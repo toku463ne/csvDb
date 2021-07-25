@@ -43,7 +43,7 @@ func TestCsvTable(t *testing.T) {
 	}, cWriteModeAppend); err != nil {
 		t.Errorf("Error inserting table test : %v", err)
 	}
-	cur := p1.openCur()
+	cur := p1.OpenCur()
 
 	for cur.next() {
 		if cur.err != nil {
@@ -74,7 +74,7 @@ func TestCsvTable(t *testing.T) {
 		t.Errorf("Error inserting table test : %v", err)
 	}
 
-	cur = p2.openCur()
+	cur = p2.OpenCur()
 	for cur.next() {
 		if cur.err != nil {
 			t.Errorf("Error getting data : %v", cur.err)
