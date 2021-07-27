@@ -131,7 +131,17 @@ func (t *CsvTable) GetPartitionIDs() []string {
 }
 
 func (t *CsvTable) getPartitionID(path string) string {
-	tokens := strings.Split(path, ".")
+	fileName := ""
+	if pos := strings.LastIndex(path, "/"); pos == -1 {
+		if pos = strings.LastIndex(path, "\\"); pos == -1 {
+			fileName = path
+		} else {
+			fileName = path[pos+1:]
+		}
+	} else {
+		fileName = path[pos+1:]
+	}
+	tokens := strings.Split(fileName, ".")
 	return tokens[0]
 }
 
@@ -140,9 +150,26 @@ func (t *CsvTable) GetDefaultPartition() *Partition {
 	return p
 }
 
+func (t *CsvTable) GetAllPartitions() ([]*Partition, error) {
+	partitionIDs := t.GetPartitionIDs()
+	partitions := make([]*Partition, len(partitionIDs))
+	for i, partitionID := range partitionIDs {
+		p, err := t.GetPartition(partitionID)
+		if err != nil {
+			return nil, err
+		}
+		partitions[i] = p
+	}
+	return partitions, nil
+}
+
 func (t *CsvTable) GetPartition(partitionID string) (*Partition, error) {
 	if err := t.validatepartitionID(partitionID); err != nil {
 		return nil, errors.WithStack(err)
+	}
+
+	if partitionID == "" {
+		partitionID = cDefaultPartitionID
 	}
 
 	p := new(Partition)
@@ -150,7 +177,11 @@ func (t *CsvTable) GetPartition(partitionID string) (*Partition, error) {
 	p.tableName = t.name
 	p.path = t.getPartitionPath(partitionID)
 	p.colMap = t.colMap
+	p.columns = t.columns
 	p.useGzip = t.useGzip
+	p.rowsPos = -1
+	p.bufferSize = t.bufferSize
+	p.rows = make([][]string, p.bufferSize)
 	return p, nil
 }
 
@@ -160,4 +191,69 @@ func (t *CsvTable) GetColumns() []string {
 
 func (t *CsvTable) GetColMap() map[string]int {
 	return t.colMap
+}
+
+func (t *CsvTable) GetStringData(condF func([]string) bool) ([][]string, error) {
+	partitionIDs := t.GetPartitionIDs()
+	foundAll := [][]string{}
+	for _, partitionID := range partitionIDs {
+		p, err := t.GetPartition(partitionID)
+		if err != nil {
+			return nil, err
+		}
+		found, err := p.GetStringData(condF)
+		if err != nil {
+			return nil, err
+		}
+		foundAll = append(foundAll, found...)
+	}
+	return foundAll, nil
+}
+
+func (t *CsvTable) Delete(condF func([]string) bool) error {
+	partitions, err := t.GetAllPartitions()
+	if err != nil {
+		return err
+	}
+	for _, p := range partitions {
+		if err := p.Delete(condF); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *CsvTable) Update(condF func([]string) bool,
+	updates map[string]string) error {
+	partitions, err := t.GetAllPartitions()
+	if err != nil {
+		return err
+	}
+	for _, p := range partitions {
+		if err := p.Update(condF, updates); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *CsvTable) Count(condF func([]string) bool) (int, error) {
+	partitions, err := t.GetAllPartitions()
+	if err != nil {
+		return -1, err
+	}
+	total := 0
+	for _, p := range partitions {
+		if cnt, err := p.Count(condF); err != nil {
+			return -1, err
+		} else {
+			total += cnt
+		}
+	}
+	return total, nil
+}
+
+func (t *CsvTable) InsertRows(rows [][]string, writeMode string) error {
+	p := t.GetDefaultPartition()
+	return p.InsertRows(rows, writeMode)
 }

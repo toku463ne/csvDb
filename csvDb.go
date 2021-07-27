@@ -36,7 +36,7 @@ func NewCsvDB(baseDir string) (*CsvDB, error) {
 }
 
 func (db *CsvDB) CreateCsvTable(name string,
-	columns []string, useGzip bool) (*CsvTable, error) {
+	columns []string, useGzip bool, bufferSize int) (*CsvTable, error) {
 	td := new(TableDef)
 	td.init(name, db.baseDir)
 
@@ -47,6 +47,13 @@ func (db *CsvDB) CreateCsvTable(name string,
 	if err := t.initAndSave(name, db.baseDir, columns, useGzip); err != nil {
 		return nil, err
 	}
+
+	if bufferSize == 0 {
+		t.bufferSize = cDefaultBuffSize
+	} else {
+		t.bufferSize = bufferSize
+	}
+
 	db.tables[name] = t.TableDef
 	return t, nil
 }
@@ -108,9 +115,9 @@ func (db *CsvDB) TableExists(name string) bool {
 }
 
 func (db *CsvDB) CreateCsvTableIfNotExists(name string,
-	columns []string, useGzip bool) (*CsvTable, error) {
+	columns []string, useGzip bool, bufferSize int) (*CsvTable, error) {
 	if !db.TableExists(name) {
-		return db.CreateCsvTable(name, columns, useGzip)
+		return db.CreateCsvTable(name, columns, useGzip, bufferSize)
 	}
 	return db.GetTable(name)
 }

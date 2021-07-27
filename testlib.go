@@ -3,6 +3,8 @@ package csvdb
 import (
 	"fmt"
 	"os"
+
+	"github.com/pkg/errors"
 )
 
 func ensureTestDir(testname string) (string, error) {
@@ -20,4 +22,11 @@ func ensureTestDir(testname string) (string, error) {
 	}
 
 	return rootDir, nil
+}
+
+func getGotExpErr(title string, got interface{}, exp interface{}) error {
+	if got == exp {
+		return nil
+	}
+	return errors.New(fmt.Sprintf("%s got=%v expected=%v", title, got, exp))
 }

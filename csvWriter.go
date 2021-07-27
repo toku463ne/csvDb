@@ -20,7 +20,7 @@ func newCsvWriter(path, writeMode string) (*CsvWriter, error) {
 
 	flags := 0
 	switch writeMode {
-	case cWriteModeWrite:
+	case CWriteModeWrite:
 		flags = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	default:
 		flags = os.O_WRONLY | os.O_CREATE | os.O_APPEND

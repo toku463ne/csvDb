@@ -19,17 +19,27 @@ type TableDef struct {
 
 type CsvTable struct {
 	*TableDef
-	useGzip bool
-	columns []string
-	colMap  map[string]int
+	bufferSize int
+	useGzip    bool
+	columns    []string
+	colMap     map[string]int
 }
 
 type Partition struct {
 	tableName   string
 	partitionID string
+	columns     []string
 	colMap      map[string]int
 	useGzip     bool
 	path        string
+	bufferSize  int
+	rows        [][]string
+	rowsPos     int
+}
+
+type Rows struct {
+	cur   *CsvCursor
+	condF func([]string) bool
 }
 
 type CsvCursor struct {
