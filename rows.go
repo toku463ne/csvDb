@@ -18,7 +18,10 @@ func newRows(cur *CsvCursor, condF func([]string) bool) *Rows {
 func (r *Rows) Next() bool {
 	for r.cur.Next() {
 		values := r.cur.currReader.values
-		if r.condF(values) {
+		if r.condF == nil {
+			return true
+		}
+		if r.condF != nil && r.condF(values) {
 			return true
 		}
 	}

@@ -145,18 +145,13 @@ func (p *Partition) Sum(colname string,
 	return s, nil
 }
 
-func (p *Partition) Select1rec(condF func([]string) bool) ([]string, error) {
-	rows, err := p.GetStringData(condF)
-	if err != nil {
-		return nil, err
+func (p *Partition) Select1rec(condF func([]string) bool,
+	args ...interface{}) error {
+	rows := p.Query(condF)
+	for rows.Next() {
+		return rows.Scan(args...)
 	}
-	if rows == nil {
-		return nil, nil
-	}
-	for _, v := range rows {
-		return v, nil
-	}
-	return nil, nil
+	return nil
 }
 
 func (p *Partition) Delete(condF func([]string) bool) error {

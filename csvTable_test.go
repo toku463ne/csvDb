@@ -356,13 +356,19 @@ func TestCsvTable2(t *testing.T) {
 	}
 
 	p := tb.GetDefaultPartition()
-	res, err := p.Select1rec(nil)
+	var id int
+
+	err = p.Select1rec(nil, &id, &name)
 	if err != nil {
 		t.Errorf("%v", err)
 		return
 	}
-	if res[0] != "5" {
-		t.Errorf("cnt error want=%s got=%s", "5", res[0])
+	if id != 5 {
+		t.Errorf("cnt error want=%d got=%d", 5, id)
+		return
+	}
+	if name != "test101" {
+		t.Errorf("cnt error want=%s got=%s", "test101", name)
 		return
 	}
 
