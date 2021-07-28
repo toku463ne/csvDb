@@ -15,38 +15,30 @@ type TableDef struct {
 	name    string
 	iniFile string
 	dataDir string
+	path    string
 }
 
 type CsvTable struct {
 	*TableDef
+	buff       *insertBuff
 	bufferSize int
 	useGzip    bool
 	columns    []string
 	colMap     map[string]int
 }
 
-type Partition struct {
-	tableName   string
-	partitionID string
-	columns     []string
-	colMap      map[string]int
-	useGzip     bool
-	path        string
-	bufferSize  int
-	rows        [][]string
-	rowsPos     int
+type csvRows struct {
+	reader             *CsvReader
+	selectedColIndexes []int
+	tableCols          []string
+	conditionCheckFunc func([]string) bool
 }
 
-type Rows struct {
-	cur   *CsvCursor
-	condF func([]string) bool
-}
-
-type CsvCursor struct {
-	filenames          []string
-	currReadingFileIdx int
-	currReader         *CsvReader
-	Err                error
+type insertBuff struct {
+	rows   [][]string
+	pos    int
+	isFull bool
+	size   int
 }
 
 type CsvReader struct {

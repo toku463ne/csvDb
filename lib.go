@@ -173,3 +173,63 @@ func asString(src interface{}) string {
 	}
 	return fmt.Sprintf("%v", src)
 }
+
+func conv(src string, dest interface{}) error {
+	sv := reflect.ValueOf(src)
+	dpv := reflect.ValueOf(dest)
+	errNilPtr := errors.New("destination pointer is nil")
+
+	if dpv.Kind() != reflect.Ptr {
+		return errors.New("destination not a pointer")
+	}
+	if dpv.IsNil() {
+		return errNilPtr
+	}
+
+	dv := reflect.Indirect(dpv)
+
+	if dv.Kind() == sv.Kind() && sv.Type().ConvertibleTo(dv.Type()) {
+		dv.Set(sv.Convert(dv.Type()))
+		return nil
+	}
+
+	switch dv.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		i64, err := strconv.ParseInt(src, 10, dv.Type().Bits())
+		if err != nil {
+			return err
+		}
+		dv.SetInt(i64)
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		u64, err := strconv.ParseUint(src, 10, dv.Type().Bits())
+		if err != nil {
+			return err
+		}
+		dv.SetUint(u64)
+
+	case reflect.Float32, reflect.Float64:
+		f64, err := strconv.ParseFloat(src, dv.Type().Bits())
+		if err != nil {
+			return err
+		}
+		dv.SetFloat(f64)
+
+	case reflect.String:
+		dv.SetString(src)
+	}
+	return nil
+}
+
+func ScanRow(row []string, args ...interface{}) error {
+	if len(row) != len(args) {
+		return errors.New(fmt.Sprintf("Got %d args while expected %d",
+			len(args), len(row)))
+	}
+	for i, v := range row {
+		if err := conv(v, args[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}

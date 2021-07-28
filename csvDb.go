@@ -44,14 +44,8 @@ func (db *CsvDB) CreateCsvTable(name string,
 		return nil, errors.New(fmt.Sprintf("The table %s exists", name))
 	}
 	t := new(CsvTable)
-	if err := t.initAndSave(name, db.baseDir, columns, useGzip); err != nil {
+	if err := t.initAndSave(name, db.baseDir, columns, useGzip, bufferSize); err != nil {
 		return nil, err
-	}
-
-	if bufferSize == 0 {
-		t.bufferSize = cDefaultBuffSize
-	} else {
-		t.bufferSize = bufferSize
 	}
 
 	db.tables[name] = t.TableDef
@@ -94,8 +88,8 @@ func (db *CsvDB) DropTable(name string) error {
 		return nil
 	}
 
-	if pathExist(td.dataDir) {
-		if err := os.RemoveAll(td.dataDir); err != nil {
+	if pathExist(td.path) {
+		if err := os.Remove(td.path); err != nil {
 			return err
 		}
 	}

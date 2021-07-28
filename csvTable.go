@@ -2,6 +2,7 @@ package csvdb
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -11,12 +12,20 @@ import (
 )
 
 func (t *CsvTable) initAndSave(name, rootDir string,
-	columns []string, useGzip bool) error {
+	columns []string, useGzip bool, bufferSize int) error {
 	t.TableDef = new(TableDef)
 	t.TableDef.init(name, rootDir)
 
 	t.columns = columns
 	t.useGzip = useGzip
+	t.path = t.getPath()
+
+	if bufferSize == 0 {
+		t.bufferSize = cDefaultBuffSize
+	} else {
+		t.bufferSize = bufferSize
+	}
+	t.buff = newInsertBuffer(t.bufferSize)
 
 	colMap := map[string]int{}
 	for i, col := range columns {
@@ -44,6 +53,7 @@ func (t *CsvTable) saveTableToIni() error {
 	cfg.Section("conf").Key("name").SetValue(t.name)
 	cfg.Section("conf").Key("columns").SetValue(strings.Join(t.columns, ","))
 	cfg.Section("conf").Key("useGzip").SetValue(strconv.FormatBool(t.useGzip))
+	cfg.Section("conf").Key("bufferSize").SetValue(strconv.Itoa(t.bufferSize))
 
 	if err := cfg.SaveTo(t.iniFile); err != nil {
 		return errors.WithStack(err)
@@ -58,10 +68,10 @@ func (t *CsvTable) saveTableToIni() error {
 }
 
 func (t *CsvTable) load(iniFile, rootDir string) error {
+	t.TableDef = new(TableDef)
 	if err := t.TableDef.load(iniFile); err != nil {
 		return err
 	}
-
 	cfg, err := ini.Load(iniFile)
 	if err != nil {
 		return err
@@ -85,175 +95,130 @@ func (t *CsvTable) load(iniFile, rootDir string) error {
 
 		case "useGzip":
 			t.useGzip = k.MustBool(false)
+
+		case "bufferSize":
+			t.bufferSize = k.MustInt(cDefaultBuffSize)
 		}
 	}
+	t.buff = newInsertBuffer(t.bufferSize)
+
 	return nil
 }
 
-func (t *CsvTable) validatepartitionID(partitionID string) error {
-	if strings.Contains(partitionID, ".") {
-		return errors.New("partitionID cannot include '.'")
+func (t *CsvTable) Count(conditionCheckFunc func([]string) bool) int {
+	reader, err := newCsvReader(t.path)
+	if err != nil {
+		return -1
 	}
-	if partitionID == "" {
-		return errors.New("partitionID be ''")
+	cnt := 0
+	defer reader.close()
+	for reader.next() {
+		v := reader.values
+		if conditionCheckFunc == nil {
+			cnt++
+		} else if conditionCheckFunc(v) {
+			cnt++
+		}
 	}
-	if strings.Contains(partitionID, "*") {
-		return errors.New("partitionID include '*'")
+	if reader.err != nil && reader.err != io.EOF {
+		return -1
 	}
-	return nil
+	return cnt
 }
 
-func (t *CsvTable) getPartitionPath(partitionID string) string {
-	path := ""
-	filename := fmt.Sprintf("%s.csv", partitionID)
-
-	if t.useGzip {
-		filename = fmt.Sprintf("%s.gz", filename)
-	}
-
-	path = fmt.Sprintf("%s/%s", t.dataDir, filename)
-	return path
+func (t *CsvTable) SelectRows(conditionCheckFunc func([]string) bool,
+	colNames []string) (*csvRows, error) {
+	return newCsvRows(conditionCheckFunc,
+		t.path, t.columns, colNames)
 }
 
-func (t *CsvTable) GetPartitionIDs() []string {
-	_, filenames := getSortedGlob(t.getPartitionPath("*"))
-	if len(filenames) == 0 {
-		return nil
+func (t *CsvTable) Select1Row(conditionCheckFunc func([]string) bool,
+	colNames []string, args ...interface{}) error {
+	r, err := t.SelectRows(conditionCheckFunc, colNames)
+	if err != nil {
+		return err
 	}
-	partitionIDs := make([]string, len(filenames))
-
-	i := 0
-	for _, filename := range filenames {
-		partitionIDs[i] = t.getPartitionID(filename)
-		i++
+	for r.Next() {
+		return r.Scan(args...)
 	}
-	return partitionIDs
+	return errors.New("No record found")
 }
 
-func (t *CsvTable) getPartitionID(path string) string {
-	fileName := ""
-	if pos := strings.LastIndex(path, "/"); pos == -1 {
-		if pos = strings.LastIndex(path, "\\"); pos == -1 {
-			fileName = path
-		} else {
-			fileName = path[pos+1:]
+func (t *CsvTable) readRows(conditionCheckFunc func([]string) bool) ([][]string, error) {
+	reader, err := newCsvReader(t.path)
+	if err != nil {
+		return nil, err
+	}
+	found := [][]string{}
+	defer reader.close()
+	for reader.next() {
+		v := reader.values
+		if conditionCheckFunc == nil {
+			found = append(found, v)
+		} else if conditionCheckFunc(v) {
+			found = append(found, v)
+		}
+	}
+	if reader.err != nil {
+		return nil, reader.err
+	}
+	return found, nil
+}
+
+func (t *CsvTable) InsertRow(columns []string, args ...interface{}) error {
+	if columns == nil && len(args) != len(t.columns) {
+		return errors.New("len of args do not match to table columns")
+	}
+	if columns != nil && len(columns) != len(args) {
+		return errors.New("len of columns and args do not match")
+	}
+
+	row := make([]string, len(t.columns))
+	if columns == nil {
+		for i, v := range args {
+			row[i] = asString(v)
 		}
 	} else {
-		fileName = path[pos+1:]
-	}
-	tokens := strings.Split(fileName, ".")
-	return tokens[0]
-}
-
-func (t *CsvTable) GetDefaultPartition() *Partition {
-	p, _ := t.GetPartition(cDefaultPartitionID)
-	return p
-}
-
-func (t *CsvTable) GetAllPartitions() ([]*Partition, error) {
-	partitionIDs := t.GetPartitionIDs()
-	partitions := make([]*Partition, len(partitionIDs))
-	for i, partitionID := range partitionIDs {
-		p, err := t.GetPartition(partitionID)
-		if err != nil {
-			return nil, err
-		}
-		partitions[i] = p
-	}
-	return partitions, nil
-}
-
-func (t *CsvTable) GetPartition(partitionID string) (*Partition, error) {
-	if err := t.validatepartitionID(partitionID); err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	if partitionID == "" {
-		partitionID = cDefaultPartitionID
-	}
-
-	p := new(Partition)
-	p.partitionID = partitionID
-	p.tableName = t.name
-	p.path = t.getPartitionPath(partitionID)
-	p.colMap = t.colMap
-	p.columns = t.columns
-	p.useGzip = t.useGzip
-	p.rowsPos = -1
-	p.bufferSize = t.bufferSize
-	p.rows = make([][]string, p.bufferSize)
-	return p, nil
-}
-
-func (t *CsvTable) GetColumns() []string {
-	return t.columns
-}
-
-func (t *CsvTable) GetColMap() map[string]int {
-	return t.colMap
-}
-
-func (t *CsvTable) GetStringData(condF func([]string) bool) ([][]string, error) {
-	partitionIDs := t.GetPartitionIDs()
-	foundAll := [][]string{}
-	for _, partitionID := range partitionIDs {
-		p, err := t.GetPartition(partitionID)
-		if err != nil {
-			return nil, err
-		}
-		found, err := p.GetStringData(condF)
-		if err != nil {
-			return nil, err
-		}
-		foundAll = append(foundAll, found...)
-	}
-	return foundAll, nil
-}
-
-func (t *CsvTable) Delete(condF func([]string) bool) error {
-	partitions, err := t.GetAllPartitions()
-	if err != nil {
-		return err
-	}
-	for _, p := range partitions {
-		if err := p.Delete(condF); err != nil {
-			return err
+		for i, col := range columns {
+			j, ok := t.colMap[col]
+			if !ok {
+				return errors.New(fmt.Sprintf("column %s does not exist", col))
+			}
+			row[j] = asString(args[i])
 		}
 	}
+
+	if t.buff.register(row) {
+		t.Flush()
+	}
+
 	return nil
 }
 
-func (t *CsvTable) Update(condF func([]string) bool,
-	updates map[string]string) error {
-	partitions, err := t.GetAllPartitions()
+func (t *CsvTable) Flush() error {
+	writer, err := t.openW(CWriteModeAppend)
 	if err != nil {
 		return err
 	}
-	for _, p := range partitions {
-		if err := p.Update(condF, updates); err != nil {
+	defer writer.close()
+	for i, row := range t.buff.rows {
+		if err := writer.write(row); err != nil {
+			t.buff.init()
 			return err
 		}
+		if i >= t.buff.pos {
+			break
+		}
 	}
+	t.buff.init()
+	writer.flush()
 	return nil
 }
 
-func (t *CsvTable) Count(condF func([]string) bool) (int, error) {
-	partitions, err := t.GetAllPartitions()
+func (t *CsvTable) openW(writeMode string) (*CsvWriter, error) {
+	writer, err := newCsvWriter(t.path, writeMode)
 	if err != nil {
-		return -1, err
+		return nil, err
 	}
-	total := 0
-	for _, p := range partitions {
-		if cnt, err := p.Count(condF); err != nil {
-			return -1, err
-		} else {
-			total += cnt
-		}
-	}
-	return total, nil
-}
-
-func (t *CsvTable) InsertRows(rows [][]string, writeMode string) error {
-	p := t.GetDefaultPartition()
-	return p.InsertRows(rows, writeMode)
+	return writer, nil
 }
