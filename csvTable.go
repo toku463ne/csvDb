@@ -196,7 +196,11 @@ func (t *CsvTable) InsertRow(columns []string, args ...interface{}) error {
 }
 
 func (t *CsvTable) Flush() error {
-	writer, err := t.openW(CWriteModeAppend)
+	return t.flush(CWriteModeAppend)
+}
+
+func (t *CsvTable) flush(wmode string) error {
+	writer, err := t.openW(wmode)
 	if err != nil {
 		return err
 	}
@@ -221,4 +225,99 @@ func (t *CsvTable) openW(writeMode string) (*CsvWriter, error) {
 		return nil, err
 	}
 	return writer, nil
+}
+
+func (t *CsvTable) Max(conditionCheckFunc func([]string) bool,
+	field string, v interface{}) error {
+	return t.minmax(conditionCheckFunc, true, field, v)
+}
+
+func (t *CsvTable) Min(conditionCheckFunc func([]string) bool,
+	field string, v interface{}) error {
+	return t.minmax(conditionCheckFunc, false, field, v)
+}
+
+func (t *CsvTable) minmax(conditionCheckFunc func([]string) bool,
+	isMax bool, field string, v interface{}) error {
+	r, err := t.SelectRows(conditionCheckFunc, []string{field})
+
+	if err != nil {
+		return err
+	}
+	var a float64
+	m := 1.0
+	if !isMax {
+		m = -1.0
+	}
+	res := 0.0
+	i := 0
+	for r.Next() {
+		if err := r.Scan(&a); err != nil {
+			return err
+		}
+		if !conditionCheckFunc(r.reader.values) {
+			continue
+		}
+		if i == 0 || m*res < m*a {
+			res = a
+		}
+		i++
+	}
+
+	conv(asString(res), v)
+	return nil
+}
+
+func (t *CsvTable) Delete(conditionCheckFunc func([]string) bool) error {
+	return t.Update(conditionCheckFunc, nil)
+}
+
+func (t *CsvTable) Update(conditionCheckFunc func([]string) bool,
+	updates map[string]interface{}) error {
+	if conditionCheckFunc == nil && updates == nil {
+		return t.Drop()
+	}
+
+	reader, err := newCsvReader(t.path)
+	if err != nil {
+		return err
+	}
+	defer reader.close()
+	rows := make([][]string, 0)
+	isUpdated := false
+	cnt := 0
+	for reader.next() {
+		cnt++
+		v := reader.values
+
+		if updates == nil {
+			if conditionCheckFunc != nil && !conditionCheckFunc(v) {
+				rows = append(rows, v)
+			}
+		} else {
+			if conditionCheckFunc == nil || conditionCheckFunc(v) {
+				for col, updv := range updates {
+					v[t.colMap[col]] = asString(updv)
+				}
+			}
+			rows = append(rows, v)
+		}
+	}
+	reader.close()
+	reader = nil
+
+	if len(rows) < cnt {
+		isUpdated = true
+	}
+
+	if isUpdated {
+		buff := newInsertBuffer(len(rows))
+		buff.setBuff(rows)
+		t.buff = buff
+
+		if err := t.flush(CWriteModeWrite); err != nil {
+			return err
+		}
+	}
+	return nil
 }

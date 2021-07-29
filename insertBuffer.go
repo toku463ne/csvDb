@@ -24,3 +24,7 @@ func (b *insertBuff) register(row []string) bool {
 	}
 	return b.isFull
 }
+func (b *insertBuff) setBuff(rows [][]string) {
+	b.rows = rows
+	b.pos = len(rows) - 1
+}

@@ -2,6 +2,7 @@ package csvdb
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -43,5 +44,20 @@ func (td *TableDef) load(iniFile string) error {
 	td.iniFile = iniFile
 	td.dataDir = dataDir
 	td.path = td.getPath()
+	return nil
+}
+
+func (td *TableDef) Drop() error {
+	if pathExist(td.path) {
+		if err := os.Remove(td.path); err != nil {
+			return err
+		}
+	}
+
+	if pathExist(td.iniFile) {
+		if err := os.Remove(td.iniFile); err != nil {
+			return errors.WithStack(err)
+		}
+	}
 	return nil
 }

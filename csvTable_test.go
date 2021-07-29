@@ -1,6 +1,9 @@
 package csvdb
 
-import "testing"
+import (
+	"strconv"
+	"testing"
+)
 
 func TestCsvTable1(t *testing.T) {
 	checkIDsCount := func(tb *CsvTable, title string, startID, endID, expectedCnt int) error {
@@ -150,6 +153,73 @@ func TestCsvTable1(t *testing.T) {
 		}
 	}
 	if err := checkIDsCount(tb, "commit after read", 1, 7, 7); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	var v int
+	if err := tb.Max(func(row []string) bool {
+		v, _ := strconv.Atoi(row[0])
+		return v < 6
+	}, "id", &v); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := getGotExpErr("max", v, 5); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := tb.Min(func(row []string) bool {
+		v, _ := strconv.Atoi(row[0])
+		return v > 1
+	}, "id", &v); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := getGotExpErr("min", v, 2); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := tb.Update(func(v []string) bool {
+		return v[2] == "class2"
+	},
+		map[string]interface{}{
+			"name": "user2",
+		}); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkIDsCount(tb, "count after update", 1, 7, 7); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := tb.Select1Row(func(v []string) bool { return v[0] == "2" },
+		nil, &id, &user, &class); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkRow("updated row", []interface{}{id, user, class},
+		[]interface{}{2, "user2", "class2"}); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := tb.Delete(func(v []string) bool { return (v[2] == "class1" || v[1] == "user7") }); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkIDsCount(tb, "count after delete", 1, 7, 5); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkIDsCount(tb, "count deleted row", 1, 1, 0); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkIDsCount(tb, "count deleted row", 7, 7, 0); err != nil {
 		t.Errorf("%v", err)
 		return
 	}

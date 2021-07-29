@@ -61,8 +61,10 @@ func (c *CsvReader) next() bool {
 func (c *CsvReader) close() {
 	if c.zr != nil {
 		c.zr.Close()
+		c.fr = nil
 	}
 	if c.fr != nil {
 		c.fr.Close()
+		c.fr = nil
 	}
 }

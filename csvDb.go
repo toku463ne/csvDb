@@ -88,16 +88,8 @@ func (db *CsvDB) DropTable(name string) error {
 		return nil
 	}
 
-	if pathExist(td.path) {
-		if err := os.Remove(td.path); err != nil {
-			return err
-		}
-	}
-
-	if pathExist(td.iniFile) {
-		if err := os.Remove(td.iniFile); err != nil {
-			return errors.WithStack(err)
-		}
+	if err := td.Drop(); err != nil {
+		return err
 	}
 	delete(db.tables, name)
 	return nil
