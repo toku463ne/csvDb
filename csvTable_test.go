@@ -127,6 +127,14 @@ func TestCsvTable1(t *testing.T) {
 		t.Errorf("%v", err)
 		return
 	}
+	if err := tb.Flush(); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkIDsCount(tb, "2nd flush after commit", 1, 4, 4); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
 
 	tb = nil
 

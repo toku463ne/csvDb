@@ -200,6 +200,9 @@ func (t *CsvTable) Flush() error {
 }
 
 func (t *CsvTable) flush(wmode string) error {
+	if t.buff.pos < 0 {
+		return nil
+	}
 	writer, err := t.openW(wmode)
 	if err != nil {
 		return err
