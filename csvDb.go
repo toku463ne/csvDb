@@ -37,12 +37,11 @@ func NewCsvDB(baseDir string) (*CsvDB, error) {
 
 func (db *CsvDB) CreateCsvTable(name string,
 	columns []string, useGzip bool, bufferSize int) (*CsvTable, error) {
-	td := new(TableDef)
-	td.init(name, db.baseDir)
 
-	if pathExist(td.iniFile) {
+	if db.TableExists(name) {
 		return nil, errors.New(fmt.Sprintf("The table %s exists", name))
 	}
+
 	t := new(CsvTable)
 	if err := t.initAndSave(name, db.baseDir, columns, useGzip, bufferSize); err != nil {
 		return nil, err
@@ -96,8 +95,18 @@ func (db *CsvDB) DropTable(name string) error {
 }
 
 func (db *CsvDB) TableExists(name string) bool {
-	_, ok := db.tables[name]
-	return ok
+	td := new(TableDef)
+	td.init(name, db.baseDir)
+
+	if pathExist(td.iniFile) {
+		_, ok := db.tables[name]
+		if !ok {
+			db.tables[name] = td
+		}
+		return true
+	}
+
+	return false
 }
 
 func (db *CsvDB) CreateCsvTableIfNotExists(name string,
