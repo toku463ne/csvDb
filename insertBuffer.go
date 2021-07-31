@@ -9,7 +9,11 @@ func newInsertBuffer(bufferSize int) *insertBuff {
 
 func (b *insertBuff) init() {
 	b.pos = -1
-	b.rows = make([][]string, b.size)
+	if b.size == 0 {
+		b.rows = make([][]string, cDefaultBuffSize)
+	} else {
+		b.rows = make([][]string, b.size)
+	}
 	b.isFull = false
 }
 
@@ -19,7 +23,12 @@ func (b *insertBuff) register(row []string) bool {
 	}
 	b.pos++
 	b.rows[b.pos] = row
-	if b.pos+1 >= len(b.rows) {
+
+	if b.size == 0 {
+		if b.pos+1 >= len(b.rows) {
+			b.rows = append(b.rows, make([][]string, cDefaultBuffSize)...)
+		}
+	} else if b.pos+1 >= len(b.rows) {
 		b.isFull = true
 	}
 	return b.isFull

@@ -169,12 +169,17 @@ func asString(src interface{}) string {
 	case reflect.Float32:
 		return strconv.FormatFloat(rv.Float(), 'g', -1, 32)
 	case reflect.Bool:
-		return strconv.FormatBool(rv.Bool())
+		srci := 1
+		if src == false {
+			srci = 0
+		}
+		rv = reflect.ValueOf(srci)
+		return strconv.FormatInt(rv.Int(), 10)
 	}
 	return fmt.Sprintf("%v", src)
 }
 
-func conv(src string, dest interface{}) error {
+func convFromString(src string, dest interface{}) error {
 	sv := reflect.ValueOf(src)
 	dpv := reflect.ValueOf(dest)
 	errNilPtr := errors.New("destination pointer is nil")
@@ -217,6 +222,13 @@ func conv(src string, dest interface{}) error {
 
 	case reflect.String:
 		dv.SetString(src)
+
+	case reflect.Bool:
+		b, err := strconv.ParseBool(src)
+		if err != nil {
+			return err
+		}
+		dv.SetBool(b)
 	}
 	return nil
 }
@@ -227,7 +239,7 @@ func ScanRow(row []string, args ...interface{}) error {
 			len(args), len(row)))
 	}
 	for i, v := range row {
-		if err := conv(v, args[i]); err != nil {
+		if err := convFromString(v, args[i]); err != nil {
 			return err
 		}
 	}

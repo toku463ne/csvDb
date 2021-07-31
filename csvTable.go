@@ -19,12 +19,8 @@ func (t *CsvTable) initAndSave(name, rootDir string,
 	t.columns = columns
 	t.useGzip = useGzip
 	t.path = t.getPath()
+	t.bufferSize = bufferSize
 
-	if bufferSize == 0 {
-		t.bufferSize = cDefaultBuffSize
-	} else {
-		t.bufferSize = bufferSize
-	}
 	t.buff = newInsertBuffer(t.bufferSize)
 
 	colMap := map[string]int{}
@@ -106,6 +102,10 @@ func (t *CsvTable) load(iniFile, rootDir string) error {
 }
 
 func (t *CsvTable) Count(conditionCheckFunc func([]string) bool) int {
+	if !pathExist(t.path) {
+		return 0
+	}
+
 	reader, err := newCsvReader(t.path)
 	if err != nil {
 		return -1
@@ -126,8 +126,48 @@ func (t *CsvTable) Count(conditionCheckFunc func([]string) bool) int {
 	return cnt
 }
 
+func (t *CsvTable) Sum(conditionCheckFunc func([]string) bool,
+	column string, s interface{}) error {
+	if !pathExist(t.path) {
+		convFromString("0", s)
+		return nil
+	}
+
+	idx, ok := t.colMap[column]
+	if !ok {
+		return errors.New(fmt.Sprintf("Column %s does not exist", column))
+	}
+
+	reader, err := newCsvReader(t.path)
+	if err != nil {
+		return err
+	}
+	res := 0.0
+	defer reader.close()
+	for reader.next() {
+		vs := reader.values
+		v, err := strconv.ParseFloat(vs[idx], 64)
+		if err != nil {
+			return err
+		}
+
+		if conditionCheckFunc == nil {
+			res += v
+		} else if conditionCheckFunc(vs) {
+			res += v
+		}
+	}
+	if reader.err != nil && reader.err != io.EOF {
+		return reader.err
+	}
+	if err := convFromString(asString(res), s); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (t *CsvTable) SelectRows(conditionCheckFunc func([]string) bool,
-	colNames []string) (*csvRows, error) {
+	colNames []string) (*CsvRows, error) {
 	return newCsvRows(conditionCheckFunc,
 		t.path, t.columns, colNames)
 }
@@ -145,6 +185,10 @@ func (t *CsvTable) Select1Row(conditionCheckFunc func([]string) bool,
 }
 
 func (t *CsvTable) readRows(conditionCheckFunc func([]string) bool) ([][]string, error) {
+	if !pathExist(t.path) {
+		return nil, nil
+	}
+
 	reader, err := newCsvReader(t.path)
 	if err != nil {
 		return nil, err
@@ -197,6 +241,10 @@ func (t *CsvTable) InsertRow(columns []string, args ...interface{}) error {
 
 func (t *CsvTable) Flush() error {
 	return t.flush(CWriteModeAppend)
+}
+
+func (t *CsvTable) FlushOverwrite() error {
+	return t.flush(CWriteModeWrite)
 }
 
 func (t *CsvTable) flush(wmode string) error {
@@ -258,7 +306,7 @@ func (t *CsvTable) minmax(conditionCheckFunc func([]string) bool,
 		if err := r.Scan(&a); err != nil {
 			return err
 		}
-		if !conditionCheckFunc(r.reader.values) {
+		if conditionCheckFunc != nil && !conditionCheckFunc(r.reader.values) {
 			continue
 		}
 		if i == 0 || m*res < m*a {
@@ -267,29 +315,55 @@ func (t *CsvTable) minmax(conditionCheckFunc func([]string) bool,
 		i++
 	}
 
-	conv(asString(res), v)
+	convFromString(asString(res), v)
 	return nil
 }
 
 func (t *CsvTable) Delete(conditionCheckFunc func([]string) bool) error {
-	return t.Update(conditionCheckFunc, nil)
+	return t.update(conditionCheckFunc, nil, false)
+}
+
+func (t *CsvTable) Upsert(conditionCheckFunc func([]string) bool,
+	updates map[string]interface{}) error {
+	return t.update(conditionCheckFunc, updates, true)
 }
 
 func (t *CsvTable) Update(conditionCheckFunc func([]string) bool,
 	updates map[string]interface{}) error {
-	if conditionCheckFunc == nil && updates == nil {
-		return t.Drop()
-	}
+	return t.update(conditionCheckFunc, updates, false)
+}
 
-	reader, err := newCsvReader(t.path)
+func (t *CsvTable) Truncate() error {
+	writer, err := t.openW(CWriteModeWrite)
 	if err != nil {
 		return err
 	}
-	defer reader.close()
+	defer writer.close()
+	writer.flush()
+	return nil
+}
+
+func (t *CsvTable) update(conditionCheckFunc func([]string) bool,
+	updates map[string]interface{}, isUpsert bool) error {
+	if conditionCheckFunc == nil && updates == nil {
+		return t.Truncate()
+	}
+
+	var reader *CsvReader
+	var err error
+	if pathExist(t.path) {
+		reader, err = newCsvReader(t.path)
+		if err != nil {
+			return err
+		}
+		defer reader.close()
+	} else if !isUpsert {
+		return nil
+	}
 	rows := make([][]string, 0)
 	isUpdated := false
 	cnt := 0
-	for reader.next() {
+	for reader != nil && reader.next() {
 		cnt++
 		v := reader.values
 
@@ -302,12 +376,15 @@ func (t *CsvTable) Update(conditionCheckFunc func([]string) bool,
 				for col, updv := range updates {
 					v[t.colMap[col]] = asString(updv)
 				}
+				isUpdated = true
 			}
 			rows = append(rows, v)
 		}
 	}
-	reader.close()
-	reader = nil
+	if reader != nil {
+		reader.close()
+		reader = nil
+	}
 
 	if len(rows) < cnt {
 		isUpdated = true
@@ -320,6 +397,21 @@ func (t *CsvTable) Update(conditionCheckFunc func([]string) bool,
 
 		if err := t.flush(CWriteModeWrite); err != nil {
 			return err
+		}
+	} else if isUpsert {
+		columns := make([]string, len(updates))
+		args := make([]interface{}, len(updates))
+		i := 0
+		for col, val := range updates {
+			columns[i] = col
+			args[i] = val
+			i++
+		}
+		if err := t.InsertRow(columns, args...); err != nil {
+			return err
+		}
+		if t.buff.pos != -1 {
+			t.flush(CWriteModeAppend)
 		}
 	}
 	return nil

@@ -9,7 +9,7 @@ func TestCsvTable1(t *testing.T) {
 	checkIDsCount := func(tb *CsvTable, title string, startID, endID, expectedCnt int) error {
 		f := func(row []string) bool {
 			var v int
-			conv(row[0], &v)
+			convFromString(row[0], &v)
 			if v >= startID && v <= endID {
 				return true
 			}
@@ -63,7 +63,7 @@ func TestCsvTable1(t *testing.T) {
 		}
 	}
 
-	if err := checkIDsCount(tb, "not committed", 1, 2, -1); err != nil {
+	if err := checkIDsCount(tb, "not committed", 1, 2, 0); err != nil {
 		t.Errorf("%v", err)
 		return
 	}
@@ -165,6 +165,16 @@ func TestCsvTable1(t *testing.T) {
 		return
 	}
 
+	var sum int
+	if err := tb.Sum(nil, "id", &sum); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := getGotExpErr("sum", sum, 28); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
 	var v int
 	if err := tb.Max(func(row []string) bool {
 		v, _ := strconv.Atoi(row[0])
@@ -228,6 +238,60 @@ func TestCsvTable1(t *testing.T) {
 		return
 	}
 	if err := checkIDsCount(tb, "count deleted row", 7, 7, 0); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := tb.Upsert(func(v []string) bool {
+		return v[0] == "8"
+	}, map[string]interface{}{
+		"id":    8,
+		"name":  "user8",
+		"class": "class8",
+	}); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := checkIDsCount(tb, "count after upsert", 1, 8, 6); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkIDsCount(tb, "count upserted row", 8, 8, 1); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := tb.Upsert(func(v []string) bool {
+		return v[0] == "5"
+	}, map[string]interface{}{
+		"id":    5,
+		"name":  "user5upserted",
+		"class": "class5upsesrted",
+	}); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkIDsCount(tb, "count after 2nd upsert", 1, 8, 6); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := tb.Select1Row(func(v []string) bool { return v[0] == "5" },
+		nil, &id, &user, &class); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkRow("updated row by upsert", []interface{}{id, user, class},
+		[]interface{}{5, "user5upserted", "class5upserted"}); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := tb.Truncate(); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkIDsCount(tb, "count after truncate", 1, 8, 0); err != nil {
 		t.Errorf("%v", err)
 		return
 	}

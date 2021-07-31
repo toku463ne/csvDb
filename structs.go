@@ -27,7 +27,7 @@ type CsvTable struct {
 	colMap     map[string]int
 }
 
-type csvRows struct {
+type CsvRows struct {
 	reader             *CsvReader
 	selectedColIndexes []int
 	tableCols          []string
