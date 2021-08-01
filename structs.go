@@ -16,13 +16,13 @@ type TableDef struct {
 	iniFile string
 	dataDir string
 	path    string
+	useGzip bool
 }
 
 type CsvTable struct {
 	*TableDef
 	buff       *insertBuff
 	bufferSize int
-	useGzip    bool
 	columns    []string
 	colMap     map[string]int
 }

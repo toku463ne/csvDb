@@ -9,7 +9,11 @@ import (
 )
 
 func (td *TableDef) getPath() string {
-	return fmt.Sprintf("%s/%s.csv", td.dataDir, td.name)
+	path := fmt.Sprintf("%s/%s.csv", td.dataDir, td.name)
+	if td.useGzip {
+		path += ".gz"
+	}
+	return path
 }
 
 func (td *TableDef) init(name, rootDir string) {
