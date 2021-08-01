@@ -47,7 +47,7 @@ func (td *TableDef) load(iniFile string) error {
 	td.name = tokens[0]
 	td.iniFile = iniFile
 	td.dataDir = dataDir
-	td.path = td.getPath()
+	//td.path = td.getPath()
 	return nil
 }
 

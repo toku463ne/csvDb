@@ -97,7 +97,7 @@ func (t *CsvTable) load(iniFile, rootDir string) error {
 		}
 	}
 	t.buff = newInsertBuffer(t.bufferSize)
-
+	t.path = t.getPath()
 	return nil
 }
 
