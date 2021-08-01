@@ -296,3 +296,69 @@ func TestCsvTable1(t *testing.T) {
 		return
 	}
 }
+
+func TestCsvTableGzip(t *testing.T) {
+	checkIDsCount := func(tb *CsvTable, title string, startID, endID, expectedCnt int) error {
+		f := func(row []string) bool {
+			var v int
+			convFromString(row[0], &v)
+			if v >= startID && v <= endID {
+				return true
+			}
+			return false
+		}
+		gotCnt := tb.Count(f)
+		return getGotExpErr(title, gotCnt, expectedCnt)
+	}
+
+	rootDir, err := ensureTestDir("TestCsvTableGzip")
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	name := "testgzip"
+	bufferSize := 3
+
+	db, err := NewCsvDB(rootDir)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	err = db.DropAllTables()
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	tb, err := db.CreateCsvTable(name,
+		[]string{"id", "name", "class"}, true, bufferSize)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	rows := [][]interface{}{
+		{1, "class1"},
+		{2, "class2"},
+	}
+
+	for _, row := range rows {
+		if err := tb.InsertRow([]string{"id", "class"}, row...); err != nil {
+			t.Errorf("%v", err)
+			return
+		}
+	}
+
+	if err := checkIDsCount(tb, "not committed", 1, 2, 0); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := tb.InsertRow(nil, 3, "user3", "class3"); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkIDsCount(tb, "committed", 1, 3, 3); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+}
