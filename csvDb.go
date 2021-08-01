@@ -81,6 +81,16 @@ func (db *CsvDB) DropAllTables() error {
 	return nil
 }
 
+func (db *CsvDB) DropDb() error {
+	if err := db.DropAllTables(); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(db.baseDir); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (db *CsvDB) DropTable(name string) error {
 	td := db.tables[name]
 	if td == nil {
