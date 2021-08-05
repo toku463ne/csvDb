@@ -5,99 +5,38 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"strings"
 
-	"github.com/go-ini/ini"
 	"github.com/pkg/errors"
 )
 
-func (t *CsvTable) initAndSave(name, rootDir string,
-	columns []string, useGzip bool, bufferSize int) error {
-	t.TableDef = new(TableDef)
-	t.TableDef.init(name, rootDir)
-
+func newCsvTable(groupName, tableName, path string,
+	columns []string, useGzip bool,
+	bufferSize int) *CsvTable {
+	t := new(CsvTable)
+	t.CsvTableDef = new(CsvTableDef)
+	t.groupName = groupName
+	t.tableName = tableName
+	t.path = path
 	t.columns = columns
-	t.useGzip = useGzip
-	t.path = t.getPath()
-	t.bufferSize = bufferSize
-
-	t.buff = newInsertBuffer(t.bufferSize)
-
-	colMap := map[string]int{}
+	colMap := make(map[string]int)
 	for i, col := range columns {
 		colMap[col] = i
 	}
 	t.colMap = colMap
-
-	if err := t.saveTableToIni(); err != nil {
-		return err
-	}
-	return nil
+	t.useGzip = useGzip
+	t.bufferSize = bufferSize
+	t.buff = newInsertBuffer(bufferSize)
+	return t
 }
 
-func (t *CsvTable) saveTableToIni() error {
-	file, err := os.OpenFile(t.iniFile, os.O_CREATE, 0640)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	cfg, err := ini.Load(t.iniFile)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	cfg.Section("conf").Key("name").SetValue(t.name)
-	cfg.Section("conf").Key("columns").SetValue(strings.Join(t.columns, ","))
-	cfg.Section("conf").Key("useGzip").SetValue(strconv.FormatBool(t.useGzip))
-	cfg.Section("conf").Key("bufferSize").SetValue(strconv.Itoa(t.bufferSize))
-
-	if err := cfg.SaveTo(t.iniFile); err != nil {
-		return errors.WithStack(err)
-	}
-
-	if _, err := os.Stat(t.dataDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(t.dataDir, 0755); err != nil {
-			return errors.WithStack(err)
-		}
-	}
-	return nil
+func (t *CsvTable) Close() {
+	t.buff = nil
 }
 
-func (t *CsvTable) load(iniFile, rootDir string) error {
-	t.TableDef = new(TableDef)
-	if err := t.TableDef.load(iniFile); err != nil {
-		return err
+func (t *CsvTable) Drop() error {
+	if pathExist(t.path) {
+		return os.Remove(t.path)
 	}
-	cfg, err := ini.Load(iniFile)
-	if err != nil {
-		return err
-	}
-	for _, k := range cfg.Section("conf").Keys() {
-		switch k.Name() {
-		case "name":
-			name := k.MustString("")
-			if name == "" {
-				return errors.New("Not available ini file")
-			}
-			t.name = name
-		case "columns":
-			columns := strings.Split(k.MustString(""), ",")
-			t.columns = columns
-			colMap := map[string]int{}
-			for i, col := range columns {
-				colMap[col] = i
-			}
-			t.colMap = colMap
-
-		case "useGzip":
-			t.useGzip = k.MustBool(false)
-
-		case "bufferSize":
-			t.bufferSize = k.MustInt(cDefaultBuffSize)
-		}
-	}
-	t.buff = newInsertBuffer(t.bufferSize)
-	t.path = t.getPath()
 	return nil
 }
 

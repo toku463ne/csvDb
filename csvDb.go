@@ -11,7 +11,7 @@ import (
 // NewCsvDB(baseDir) create a new CsvDB object
 func NewCsvDB(baseDir string) (*CsvDB, error) {
 	db := new(CsvDB)
-	db.tables = map[string]*TableDef{}
+	db.groups = make(map[string]*CsvTableGroup)
 	db.baseDir = baseDir
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
 		os.Mkdir(baseDir, 0755)
@@ -24,105 +24,127 @@ func NewCsvDB(baseDir string) (*CsvDB, error) {
 		return nil, err
 	}
 	for _, iniFile := range iniFiles {
-		td := new(TableDef)
-		if err := td.load(iniFile); err == nil {
-			db.tables[td.name] = td
-		} else {
+		g := new(CsvTableGroup)
+		if err := g.load(iniFile); err != nil {
 			return nil, err
 		}
+		db.groups[g.groupName] = g
 	}
 
 	return db, nil
 }
 
-func (db *CsvDB) CreateCsvTable(name string,
+func (db *CsvDB) CreateGroup(groupName string,
+	columns []string, useGzip bool, bufferSize int) (*CsvTableGroup, error) {
+	g, err := newCsvTableGroup(groupName, db.baseDir, columns, useGzip, bufferSize)
+	if err != nil {
+		return nil, err
+	}
+	db.groups[groupName] = g
+	return g, nil
+}
+
+func (db *CsvDB) createTable(groupName, tableName string,
 	columns []string, useGzip bool, bufferSize int) (*CsvTable, error) {
 
-	if db.TableExists(name) {
-		return nil, errors.New(fmt.Sprintf("The table %s exists", name))
+	if groupName == "" {
+		groupName = tableName
 	}
 
-	t := new(CsvTable)
-	if err := t.initAndSave(name, db.baseDir, columns, useGzip, bufferSize); err != nil {
+	g, ok := db.groups[groupName]
+	var err error
+	if ok {
+		if db.TableExists(groupName, tableName) {
+			return nil, errors.New(fmt.Sprintf("The table %s exists", tableName))
+		}
+	} else {
+		g, err = newCsvTableGroup(groupName, db.baseDir, columns, useGzip, bufferSize)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	t, err := g.CreateTable(tableName)
+	if err != nil {
 		return nil, err
 	}
 
-	db.tables[name] = t.TableDef
+	db.groups[groupName] = g
 	return t, nil
 }
 
-func (db *CsvDB) GetTable(name string) (*CsvTable, error) {
-	td := new(TableDef)
-	td.init(name, db.baseDir)
-	t := new(CsvTable)
-	if err := t.load(td.iniFile, db.baseDir); err != nil {
-		return nil, err
-	}
-	return t, nil
+func (db *CsvDB) CreateTable(tableName string,
+	columns []string, useGzip bool, bufferSize int) (*CsvTable, error) {
+	return db.createTable("", tableName, columns, useGzip, bufferSize)
 }
 
-func (db *CsvDB) GetTableNames() []string {
-	tableNames := make([]string, len(db.tables))
-	i := 0
-	for tableName, _ := range db.tables {
-		tableNames[i] = tableName
-		i++
+func (db *CsvDB) GetTable(tableName string) (*CsvTable, error) {
+	return db.getTable("", tableName)
+}
+
+func (db *CsvDB) getTable(groupName, tableName string) (*CsvTable, error) {
+	if groupName == "" {
+		groupName = tableName
 	}
-	return tableNames
+	g, ok := db.groups[groupName]
+	if ok {
+		return g.GetTable(tableName)
+	} else {
+		return g.CreateTable(tableName)
+	}
+	return nil, nil
 }
 
 // DropAllTables() drop all tables in the CsvDB object
-func (db *CsvDB) DropAllTables() error {
-	for _, t := range db.tables {
-		if err := db.DropTable(t.name); err != nil {
+func (db *CsvDB) DropAll() error {
+	for _, g := range db.groups {
+		if err := g.Drop(); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (db *CsvDB) DropDb() error {
-	if err := db.DropAllTables(); err != nil {
-		return err
+func (db *CsvDB) dropTable(groupName, tableName string) error {
+	if groupName == "" {
+		groupName = tableName
 	}
-	if err := os.RemoveAll(db.baseDir); err != nil {
-		return err
+	g, ok := db.groups[groupName]
+	if ok {
+		return g.DropTable(tableName)
 	}
 	return nil
 }
 
-func (db *CsvDB) DropTable(name string) error {
-	td := db.tables[name]
-	if td == nil {
-		return nil
-	}
-
-	if err := td.Drop(); err != nil {
-		return err
-	}
-	delete(db.tables, name)
-	return nil
+func (db *CsvDB) DropTable(tableName string) error {
+	return db.dropTable("", tableName)
 }
 
-func (db *CsvDB) TableExists(name string) bool {
-	td := new(TableDef)
-	td.init(name, db.baseDir)
-
-	if pathExist(td.iniFile) {
-		_, ok := db.tables[name]
-		if !ok {
-			db.tables[name] = td
-		}
-		return true
-	}
-
-	return false
+func (db *CsvDB) GroupExists(groupName string) bool {
+	_, ok := db.groups[groupName]
+	return ok
 }
 
-func (db *CsvDB) CreateCsvTableIfNotExists(name string,
+func (db *CsvDB) TableExists(groupName, tableName string) bool {
+	if groupName == "" {
+		groupName = tableName
+	}
+	g := db.groups[groupName]
+	return g.TableExists(tableName)
+}
+
+func (db *CsvDB) CreateTableIfNotExists(groupName, tableName string,
 	columns []string, useGzip bool, bufferSize int) (*CsvTable, error) {
-	if !db.TableExists(name) {
-		return db.CreateCsvTable(name, columns, useGzip, bufferSize)
+	if groupName == "" {
+		groupName = tableName
 	}
-	return db.GetTable(name)
+	g, ok := db.groups[groupName]
+	var err error
+	if !ok {
+		g, err = db.CreateGroup(groupName, columns, useGzip, bufferSize)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return g.CreateTableIfNotExists(tableName)
 }

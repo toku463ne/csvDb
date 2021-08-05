@@ -7,24 +7,34 @@ import (
 )
 
 type CsvDB struct {
-	tables  map[string]*TableDef
+	groups  map[string]*CsvTableGroup
 	baseDir string
 }
 
-type TableDef struct {
-	name    string
-	iniFile string
-	dataDir string
-	path    string
-	useGzip bool
+type CsvTableGroup struct {
+	groupName  string
+	rootDir    string
+	dataDir    string
+	iniFile    string
+	tableDefs  map[string]*CsvTableDef
+	columns    []string
+	useGzip    bool
+	bufferSize int
+}
+
+type CsvTableDef struct {
+	groupName string
+	tableName string
+	path      string
 }
 
 type CsvTable struct {
-	*TableDef
-	buff       *insertBuff
-	bufferSize int
+	*CsvTableDef
 	columns    []string
 	colMap     map[string]int
+	useGzip    bool
+	bufferSize int
+	buff       *insertBuff
 }
 
 type CsvRows struct {

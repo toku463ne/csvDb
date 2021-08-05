@@ -38,13 +38,13 @@ func TestCsvTable1(t *testing.T) {
 		return
 	}
 
-	err = db.DropAllTables()
+	err = db.DropAll()
 	if err != nil {
 		t.Errorf("%v", err)
 		return
 	}
 
-	tb, err := db.CreateCsvTable(name,
+	tb, err := db.CreateTable(name,
 		[]string{"id", "name", "class"}, false, bufferSize)
 	if err != nil {
 		t.Errorf("%v", err)
@@ -143,6 +143,11 @@ func TestCsvTable1(t *testing.T) {
 		t.Errorf("%v", err)
 		return
 	}
+	if tb == nil {
+		t.Errorf("table test1 does not exist")
+		return
+	}
+
 	if err := checkIDsCount(tb, "readed", 1, 4, 4); err != nil {
 		t.Errorf("%v", err)
 		return
@@ -324,13 +329,13 @@ func TestCsvTableGzip(t *testing.T) {
 		return
 	}
 
-	err = db.DropAllTables()
+	err = db.DropAll()
 	if err != nil {
 		t.Errorf("%v", err)
 		return
 	}
 
-	tb, err := db.CreateCsvTable(name,
+	tb, err := db.CreateTable(name,
 		[]string{"id", "name", "class"}, true, bufferSize)
 	if err != nil {
 		t.Errorf("%v", err)
@@ -358,6 +363,101 @@ func TestCsvTableGzip(t *testing.T) {
 		return
 	}
 	if err := checkIDsCount(tb, "committed", 1, 3, 3); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+}
+
+func TestCsvTableGroup(t *testing.T) {
+	checkIDsCount := func(tb *CsvTable, title string, startID, endID, expectedCnt int) error {
+		f := func(row []string) bool {
+			var v int
+			convFromString(row[0], &v)
+			if v >= startID && v <= endID {
+				return true
+			}
+			return false
+		}
+		gotCnt := tb.Count(f)
+		return getGotExpErr(title, gotCnt, expectedCnt)
+	}
+
+	rootDir, err := ensureTestDir("TestGroupTable3")
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	name := "grptest3"
+	bufferSize := 3
+
+	db, err := NewCsvDB(rootDir)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	err = db.DropAll()
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	g, err := db.CreateGroup(name,
+		[]string{"id", "name", "class"}, true, bufferSize)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	tb1, err := g.CreateTable("table1")
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	rows := [][]interface{}{
+		{1, "class1"},
+		{2, "class2"},
+		{3, "class3"},
+	}
+	for _, row := range rows {
+		if err := tb1.InsertRow([]string{"id", "class"}, row...); err != nil {
+			t.Errorf("%v", err)
+			return
+		}
+	}
+
+	if err := checkIDsCount(tb1, "check data inserted to table1", 1, 3, 3); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	tb2, err := g.CreateTable("table2")
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	rows = [][]interface{}{
+		{4, "user1"},
+		{5, "user2"},
+		{6, "user3"},
+	}
+	for _, row := range rows {
+		if err := tb2.InsertRow([]string{"id", "name"}, row...); err != nil {
+			t.Errorf("%v", err)
+			return
+		}
+	}
+
+	if err := checkIDsCount(tb2, "check data inserted to table2", 1, 6, 3); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := getGotExpErr("number of tables", len(g.tableDefs), 2); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := getGotExpErr("total count", g.Count(nil), 6); err != nil {
 		t.Errorf("%v", err)
 		return
 	}

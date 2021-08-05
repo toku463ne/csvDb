@@ -245,3 +245,12 @@ func ScanRow(row []string, args ...interface{}) error {
 	}
 	return nil
 }
+
+func ensureDir(dirPath string) error {
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		os.MkdirAll(dirPath, 0755)
+	} else if err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
