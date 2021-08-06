@@ -381,6 +381,12 @@ func TestCsvTableGroup(t *testing.T) {
 		gotCnt := tb.Count(f)
 		return getGotExpErr(title, gotCnt, expectedCnt)
 	}
+	checkRow := func(title string, got []interface{}, want []interface{}) error {
+		for i, g := range got {
+			return getGotExpErr(title, g, want[i])
+		}
+		return nil
+	}
 
 	rootDir, err := ensureTestDir("TestGroupTable3")
 	if err != nil {
@@ -436,9 +442,9 @@ func TestCsvTableGroup(t *testing.T) {
 		return
 	}
 	rows = [][]interface{}{
-		{4, "user1"},
-		{5, "user2"},
-		{6, "user3"},
+		{4, "user4"},
+		{5, "user5"},
+		{6, "user6"},
 	}
 	for _, row := range rows {
 		if err := tb2.InsertRow([]string{"id", "name"}, row...); err != nil {
@@ -458,6 +464,72 @@ func TestCsvTableGroup(t *testing.T) {
 	}
 
 	if err := getGotExpErr("total count", g.Count(nil), 6); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	db, err = NewCsvDB(rootDir)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	g = db.Groups["grptest3"]
+	tb1, err = g.GetTable("table1")
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	var id int
+	var user string
+	var class string
+	if err := tb1.Select1Row(func(v []string) bool { return v[0] == "1" },
+		nil, &id, &user, &class); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkRow("1st row", []interface{}{id, user, class},
+		[]interface{}{1, "", "class1"}); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	tb2, err = g.GetTable("table2")
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	if err := tb2.Select1Row(func(v []string) bool { return v[0] == "4" },
+		nil, &id, &user, &class); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := checkRow("updated row", []interface{}{id, user, class},
+		[]interface{}{4, "user4", ""}); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	tb3, err := g.CreateTable("table3")
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	rows = [][]interface{}{
+		{7, "user7"},
+		{8, "user8"},
+		{9, "user9"},
+	}
+	for _, row := range rows {
+		if err := tb3.InsertRow([]string{"id", "name"}, row...); err != nil {
+			t.Errorf("%v", err)
+			return
+		}
+	}
+
+	if err := checkIDsCount(tb3, "check data inserted to table2", 1, 9, 3); err != nil {
 		t.Errorf("%v", err)
 		return
 	}

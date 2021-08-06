@@ -7,7 +7,7 @@ import (
 )
 
 type CsvDB struct {
-	groups  map[string]*CsvTableGroup
+	Groups  map[string]*CsvTableGroup
 	baseDir string
 }
 

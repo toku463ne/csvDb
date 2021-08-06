@@ -11,7 +11,7 @@ import (
 // NewCsvDB(baseDir) create a new CsvDB object
 func NewCsvDB(baseDir string) (*CsvDB, error) {
 	db := new(CsvDB)
-	db.groups = make(map[string]*CsvTableGroup)
+	db.Groups = make(map[string]*CsvTableGroup)
 	db.baseDir = baseDir
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
 		os.Mkdir(baseDir, 0755)
@@ -28,7 +28,7 @@ func NewCsvDB(baseDir string) (*CsvDB, error) {
 		if err := g.load(iniFile); err != nil {
 			return nil, err
 		}
-		db.groups[g.groupName] = g
+		db.Groups[g.groupName] = g
 	}
 
 	return db, nil
@@ -40,7 +40,7 @@ func (db *CsvDB) CreateGroup(groupName string,
 	if err != nil {
 		return nil, err
 	}
-	db.groups[groupName] = g
+	db.Groups[groupName] = g
 	return g, nil
 }
 
@@ -51,7 +51,7 @@ func (db *CsvDB) createTable(groupName, tableName string,
 		groupName = tableName
 	}
 
-	g, ok := db.groups[groupName]
+	g, ok := db.Groups[groupName]
 	var err error
 	if ok {
 		if db.TableExists(groupName, tableName) {
@@ -69,7 +69,7 @@ func (db *CsvDB) createTable(groupName, tableName string,
 		return nil, err
 	}
 
-	db.groups[groupName] = g
+	db.Groups[groupName] = g
 	return t, nil
 }
 
@@ -86,7 +86,7 @@ func (db *CsvDB) getTable(groupName, tableName string) (*CsvTable, error) {
 	if groupName == "" {
 		groupName = tableName
 	}
-	g, ok := db.groups[groupName]
+	g, ok := db.Groups[groupName]
 	if ok {
 		return g.GetTable(tableName)
 	} else {
@@ -97,7 +97,7 @@ func (db *CsvDB) getTable(groupName, tableName string) (*CsvTable, error) {
 
 // DropAllTables() drop all tables in the CsvDB object
 func (db *CsvDB) DropAll() error {
-	for _, g := range db.groups {
+	for _, g := range db.Groups {
 		if err := g.Drop(); err != nil {
 			return err
 		}
@@ -109,7 +109,7 @@ func (db *CsvDB) dropTable(groupName, tableName string) error {
 	if groupName == "" {
 		groupName = tableName
 	}
-	g, ok := db.groups[groupName]
+	g, ok := db.Groups[groupName]
 	if ok {
 		return g.DropTable(tableName)
 	}
@@ -121,7 +121,7 @@ func (db *CsvDB) DropTable(tableName string) error {
 }
 
 func (db *CsvDB) GroupExists(groupName string) bool {
-	_, ok := db.groups[groupName]
+	_, ok := db.Groups[groupName]
 	return ok
 }
 
@@ -129,7 +129,7 @@ func (db *CsvDB) TableExists(groupName, tableName string) bool {
 	if groupName == "" {
 		groupName = tableName
 	}
-	g := db.groups[groupName]
+	g := db.Groups[groupName]
 	return g.TableExists(tableName)
 }
 
@@ -138,7 +138,7 @@ func (db *CsvDB) CreateTableIfNotExists(groupName, tableName string,
 	if groupName == "" {
 		groupName = tableName
 	}
-	g, ok := db.groups[groupName]
+	g, ok := db.Groups[groupName]
 	var err error
 	if !ok {
 		g, err = db.CreateGroup(groupName, columns, useGzip, bufferSize)
