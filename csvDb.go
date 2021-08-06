@@ -143,6 +143,11 @@ func (db *CsvDB) TableExists(groupName, tableName string) bool {
 
 func (db *CsvDB) CreateTableIfNotExists(groupName, tableName string,
 	columns []string, useGzip bool, bufferSize int) (*CsvTable, error) {
+	return db.createTableIfNotExists("", tableName, columns, useGzip, bufferSize)
+}
+
+func (db *CsvDB) createTableIfNotExists(groupName, tableName string,
+	columns []string, useGzip bool, bufferSize int) (*CsvTable, error) {
 	if groupName == "" {
 		groupName = tableName
 	}
