@@ -44,6 +44,14 @@ func (db *CsvDB) CreateGroup(groupName string,
 	return g, nil
 }
 
+func (db *CsvDB) GetGroup(groupName string) (*CsvTableGroup, error) {
+	g, ok := db.Groups[groupName]
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("Group %s does not exit", groupName))
+	}
+	return g, nil
+}
+
 func (db *CsvDB) createTable(groupName, tableName string,
 	columns []string, useGzip bool, bufferSize int) (*CsvTable, error) {
 
