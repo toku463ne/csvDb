@@ -258,6 +258,14 @@ func (t *CsvTable) minmax(conditionCheckFunc func([]string) bool,
 	return nil
 }
 
+func (t *CsvTable) GetColIdx(colName string) int {
+	i, ok := t.colMap[colName]
+	if ok {
+		return i
+	}
+	return i
+}
+
 func (t *CsvTable) Delete(conditionCheckFunc func([]string) bool) error {
 	return t.update(conditionCheckFunc, nil, false)
 }
