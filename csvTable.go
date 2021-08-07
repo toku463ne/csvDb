@@ -263,7 +263,7 @@ func (t *CsvTable) GetColIdx(colName string) int {
 	if ok {
 		return i
 	}
-	return i
+	return -1
 }
 
 func (t *CsvTable) Delete(conditionCheckFunc func([]string) bool) error {

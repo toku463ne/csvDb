@@ -533,5 +533,4 @@ func TestCsvTableGroup(t *testing.T) {
 		t.Errorf("%v", err)
 		return
 	}
-
 }

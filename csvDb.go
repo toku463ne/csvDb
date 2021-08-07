@@ -62,7 +62,7 @@ func (db *CsvDB) createTable(groupName, tableName string,
 	g, ok := db.Groups[groupName]
 	var err error
 	if ok {
-		if db.TableExists(groupName, tableName) {
+		if db.tableExists(groupName, tableName) {
 			return nil, errors.New(fmt.Sprintf("The table %s exists", tableName))
 		}
 	} else {
@@ -98,9 +98,8 @@ func (db *CsvDB) getTable(groupName, tableName string) (*CsvTable, error) {
 	if ok {
 		return g.GetTable(tableName)
 	} else {
-		return g.CreateTable(tableName)
+		return nil, errors.New(fmt.Sprintf("The group %s does not exist", groupName))
 	}
-	return nil, nil
 }
 
 // DropAllTables() drop all tables in the CsvDB object
@@ -133,7 +132,11 @@ func (db *CsvDB) GroupExists(groupName string) bool {
 	return ok
 }
 
-func (db *CsvDB) TableExists(groupName, tableName string) bool {
+func (db *CsvDB) TaleExists(tableName string) bool {
+	return db.tableExists("", tableName)
+}
+
+func (db *CsvDB) tableExists(groupName, tableName string) bool {
 	if groupName == "" {
 		groupName = tableName
 	}
@@ -141,7 +144,7 @@ func (db *CsvDB) TableExists(groupName, tableName string) bool {
 	return g.TableExists(tableName)
 }
 
-func (db *CsvDB) CreateTableIfNotExists(groupName, tableName string,
+func (db *CsvDB) CreateTableIfNotExists(tableName string,
 	columns []string, useGzip bool, bufferSize int) (*CsvTable, error) {
 	return db.createTableIfNotExists("", tableName, columns, useGzip, bufferSize)
 }

@@ -158,10 +158,14 @@ func (g *CsvTableGroup) DropTable(tableName string) error {
 
 func (g *CsvTableGroup) Drop() error {
 	if pathExist(g.dataDir) {
-		return os.RemoveAll(g.dataDir)
+		if err := os.RemoveAll(g.dataDir); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 	if pathExist(g.iniFile) {
-		return os.Remove(g.iniFile)
+		if err := os.Remove(g.iniFile); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 	return nil
 }
@@ -178,6 +182,9 @@ func (g *CsvTableGroup) TableExists(tableName string) bool {
 }
 
 func (g *CsvTableGroup) GetTable(tableName string) (*CsvTable, error) {
+	if err := ensureDir(g.dataDir); err != nil {
+		return nil, err
+	}
 	if td, ok := g.tableDefs[tableName]; ok {
 		return newCsvTable(g.groupName, tableName, td.path, g.columns, g.useGzip, g.bufferSize), nil
 	} else {
