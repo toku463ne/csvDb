@@ -1,6 +1,7 @@
 package csvdb
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 )
@@ -532,5 +533,143 @@ func TestCsvTableGroup(t *testing.T) {
 	if err := checkIDsCount(tb3, "check data inserted to table2", 1, 9, 3); err != nil {
 		t.Errorf("%v", err)
 		return
+	}
+}
+
+func TestCsvTableOrderBy(t *testing.T) {
+	checkRow := func(title string, got []interface{}, want []interface{}) error {
+		for i, g := range got {
+			return getGotExpErr(title, g, want[i])
+		}
+		return nil
+	}
+
+	rootDir, err := ensureTestDir("TestCsvTableOrderBy")
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	name := "test4"
+	bufferSize := 3
+
+	db, err := NewCsvDB(rootDir)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	err = db.DropAll()
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	tb, err := db.CreateTable(name,
+		[]string{"id", "name", "int1", "float2"}, false, bufferSize)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	rows := [][]interface{}{
+		{1, "name1", 9, 1.1},
+		{2, "name2", 9, 2.1},
+		{3, "name3", 9, 3.1},
+		{4, "name4", 8, 3.2},
+		{5, "name5", 8, 2.2},
+		{6, "name6", 8, 1.2},
+		{7, "name7", 7, 2.3},
+		{8, "name8", 7, 3.3},
+		{9, "name9", 7, 1.3},
+	}
+
+	for _, row := range rows {
+		if err := tb.InsertRow([]string{"id", "name", "int1", "float2"}, row...); err != nil {
+			t.Errorf("%v", err)
+			return
+		}
+	}
+
+	got, err := tb.SelectRows(nil, nil)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := got.OrderBy([]string{"int1", "float2"},
+		[]string{"int", "float32"}, CorderByAsc); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	expected := [][]interface{}{
+		{9, "name9", 7, 1.3},
+		{7, "name7", 7, 2.3},
+		{8, "name8", 7, 3.3},
+		{6, "name6", 8, 1.2},
+		{5, "name5", 8, 2.2},
+		{4, "name4", 8, 3.2},
+		{1, "name1", 9, 1.1},
+		{2, "name2", 9, 2.1},
+		{3, "name3", 9, 3.1},
+	}
+
+	i := 0
+	for got.Next() {
+		var id int
+		var name string
+		var int1 int
+		var float1 float32
+		if err := got.Scan(&id, &name, &int1, &float1); err != nil {
+			t.Errorf("%v", err)
+			return
+		}
+		if err := checkRow(fmt.Sprintf("i=%d", id),
+			[]interface{}{id, name, int1, float1},
+			expected[i]); err != nil {
+			t.Errorf("%v", err)
+			return
+		}
+		i++
+	}
+
+	got, err = tb.SelectRows(nil, nil)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if err := got.OrderBy([]string{"int1", "float2"},
+		[]string{"int", "float32"}, CorderByDesc); err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	expected = [][]interface{}{
+		{3, "name3", 9, 3.1},
+		{2, "name2", 9, 2.1},
+		{1, "name1", 9, 1.1},
+		{4, "name4", 8, 3.2},
+		{5, "name5", 8, 2.2},
+		{6, "name6", 8, 1.2},
+		{8, "name8", 7, 3.3},
+		{7, "name7", 7, 2.3},
+		{9, "name9", 7, 1.3},
+	}
+
+	i = 0
+	for got.Next() {
+		var id int
+		var name string
+		var int1 int
+		var float1 float32
+		if err := got.Scan(&id, &name, &int1, &float1); err != nil {
+			t.Errorf("%v", err)
+			return
+		}
+		if err := checkRow(fmt.Sprintf("i=%d", id),
+			[]interface{}{id, name, int1, float1},
+			expected[i]); err != nil {
+			t.Errorf("%v", err)
+			return
+		}
+		i++
 	}
 }

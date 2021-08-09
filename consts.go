@@ -7,4 +7,6 @@ const (
 	cDefaultBuffSize = 10000
 	CWriteModeAppend = "a"
 	CWriteModeWrite  = "w"
+	CorderByAsc      = 1
+	CorderByDesc     = -1
 )

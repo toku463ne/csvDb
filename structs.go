@@ -42,6 +42,10 @@ type CsvRows struct {
 	selectedColIndexes []int
 	tableCols          []string
 	conditionCheckFunc func([]string) bool
+	orderbyBuff        orderBuffRows
+	orderbyBuffPos     int
+	orderbyExecuted    bool
+	orderbyErr         error
 }
 
 type insertBuff struct {
@@ -68,3 +72,12 @@ type CsvWriter struct {
 	path   string
 	mode   string
 }
+
+type orderBuffRow struct {
+	v               []string
+	orderFieldTypes []string
+	orderFieldIdxs  []int
+	direction       int
+}
+
+type orderBuffRows []orderBuffRow
