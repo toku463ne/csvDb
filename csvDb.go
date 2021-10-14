@@ -132,7 +132,7 @@ func (db *CsvDB) GroupExists(groupName string) bool {
 	return ok
 }
 
-func (db *CsvDB) TaleExists(tableName string) bool {
+func (db *CsvDB) TableExists(tableName string) bool {
 	return db.tableExists("", tableName)
 }
 

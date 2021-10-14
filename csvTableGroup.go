@@ -171,12 +171,12 @@ func (g *CsvTableGroup) Drop() error {
 }
 
 func (g *CsvTableGroup) TableExists(tableName string) bool {
+	if g == nil || g.iniFile == "" {
+		return false
+	}
 	if pathExist(g.iniFile) {
 		_, ok := g.tableDefs[tableName]
-		if !ok {
-			return false
-		}
-		return true
+		return ok
 	}
 	return false
 }
