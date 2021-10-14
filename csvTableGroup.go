@@ -174,11 +174,14 @@ func (g *CsvTableGroup) TableExists(tableName string) bool {
 	if g == nil || g.iniFile == "" {
 		return false
 	}
-	if pathExist(g.iniFile) {
-		_, ok := g.tableDefs[tableName]
-		return ok
+	if !pathExist(g.getTablePath(tableName)) {
+		return false
 	}
-	return false
+	if !pathExist(g.iniFile) {
+		return false
+	}
+	_, ok := g.tableDefs[tableName]
+	return ok
 }
 
 func (g *CsvTableGroup) GetTable(tableName string) (*CsvTable, error) {
